@@ -1,0 +1,82 @@
+[
+  {
+    "trace_id": "6dbef5bb-a56c-4926-9d98-6f0ef043dbcc",
+    "timestamp": "2026-03-21T15:34:24Z",
+    "skill_id": "code-review-v1",
+    "skill_version": "1.0.0",
+    "project": "9.",
+    "editor": "claude-code",
+    "intent": "Review a Python authentication function submitted by the AWM team for security and code quality issues",
+    "topics": [
+      "sql-injection",
+      "authentication",
+      "python"
+    ],
+    "complexity": "medium",
+    "tokens_estimated": 520
+  },
+  {
+    "trace_id": "65cba130-7e3c-4663-b9b0-ab8533ea4875",
+    "timestamp": "2026-03-21T15:35:11Z",
+    "skill_id": "code-review-v1",
+    "skill_version": "1.0.0",
+    "project": "telemetry",
+    "editor": "claude-code",
+    "intent": "Review a JavaScript Express route submitted by the risk-ops team for security and code quality issues",
+    "topics": [
+      "sql-injection",
+      "authentication",
+      "input-validation"
+    ],
+    "complexity": "medium",
+    "tokens_estimated": 480
+  },
+  {
+    "trace_id": "9422d025-53fd-4232-88f2-ff7050f80e76",
+    "timestamp": "2026-03-21T15:38:21Z",
+    "skill_id": "code-review-v1",
+    "skill_version": "1.0.0",
+    "project": "telemetry",
+    "editor": "claude-code",
+    "intent": "Review Express.js authentication middleware for security issues",
+    "topics": [
+      "jwt",
+      "authentication",
+      "middleware"
+    ],
+    "complexity": "medium",
+    "tokens_estimated": 550
+  },
+  {
+    "trace_id": "e75cd163-f317-4d2d-994e-88c6628ddd08",
+    "timestamp": "2026-03-21T15:46:54Z",
+    "skill_id": "code-review-v1",
+    "skill_version": "1.0.0",
+    "project": "telemetry",
+    "editor": "claude-code",
+    "intent": "Review Python SQLite authentication function submitted by AWM team for security issues",
+    "topics": [
+      "sql-injection",
+      "plaintext-passwords",
+      "connection-leak"
+    ],
+    "complexity": "medium",
+    "tokens_estimated": 490
+  },
+  {
+    "trace_id": "ac7456ed-06d7-41a5-b2ec-0bdc959f38cc",
+    "timestamp": "2026-03-21T15:48:19Z",
+    "skill_id": "code-review-v1",
+    "skill_version": "1.0.0",
+    "project": "telemetry",
+    "editor": "claude-code",
+    "intent": "Review JavaScript Express data endpoint submitted by risk-ops team for security issues",
+    "topics": [
+      "sql-injection",
+      "missing-auth",
+      "input-validation"
+    ],
+    "complexity": "medium",
+    "tokens_estimated": 510
+  }
+]
