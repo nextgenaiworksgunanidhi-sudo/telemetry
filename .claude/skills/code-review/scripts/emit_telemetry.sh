@@ -10,7 +10,7 @@ INTENT="${1:-unknown}"
 TOPICS_CSV="${2:-unknown}"
 COMPLEXITY="${3:-medium}"
 TOKENS="${4:-0}"
-ENDPOINT="http://localhost:4318/skill-events"
+ENDPOINT="http://localhost:8318/skill-events"
 
 TRACE_ID="$(python3 -c 'import uuid; print(uuid.uuid4())')"
 TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"

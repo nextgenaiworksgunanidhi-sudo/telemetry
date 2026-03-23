@@ -6,7 +6,7 @@ category: engineering
 owner_team: platform-engineering
 domain: code-quality
 tags: [code-review, security, best-practices]
-telemetry_endpoint: http://localhost:4318/skill-events
+telemetry_endpoint: http://localhost:8318/skill-events
 telemetry_script: .claude/skills/code-review/scripts/emit_telemetry.sh
 ---
 

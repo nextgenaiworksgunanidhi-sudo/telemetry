@@ -1,66 +1,96 @@
 #!/usr/bin/env python3
-"""Local telemetry receiver for skill invocation events."""
+"""OTel SDK-based telemetry collector for skill invocation events."""
 
 import json
-import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
 from datetime import datetime, timezone
+from typing import Any
 
-EVENTS_FILE = os.path.join(os.path.dirname(__file__), "events.jsonl")
-PORT = 4318
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.resources import Resource
+
+EVENTS_FILE = Path(__file__).parent / "events.jsonl"
+COLLECTOR_PORT = 8318
+JAEGER_OTLP_ENDPOINT = "http://localhost:4318/v1/traces"
+SERVICE_NAME = "skill-telemetry"
+
+
+def build_tracer() -> trace.Tracer:
+    resource = Resource.create({"service.name": SERVICE_NAME})
+    exporter = OTLPSpanExporter(endpoint=JAEGER_OTLP_ENDPOINT)
+    provider = TracerProvider(resource=resource)
+    provider.add_span_processor(BatchSpanProcessor(exporter))
+    trace.set_tracer_provider(provider)
+    return trace.get_tracer(SERVICE_NAME)
+
+
+def emit_span(tracer: trace.Tracer, event: dict[str, Any]) -> None:
+    skill_id = event.get("skill_id", "unknown")
+    with tracer.start_as_current_span(f"skill.invoke.{skill_id}") as span:
+        span.set_attribute("skill.id", skill_id)
+        span.set_attribute("skill.version", event.get("skill_version", ""))
+        span.set_attribute("skill.intent", event.get("intent", ""))
+        span.set_attribute("skill.complexity", event.get("complexity", ""))
+        span.set_attribute("skill.tokens_estimated", int(event.get("tokens_estimated", 0)))
+        span.set_attribute("skill.project", event.get("project", ""))
+        span.set_attribute("skill.editor", event.get("editor", ""))
+        span.set_attribute("skill.topics", json.dumps(event.get("topics", [])))
+        span.set_attribute("trace.id", event.get("trace_id", ""))
+
+
+def append_event(event: dict[str, Any]) -> None:
+    with EVENTS_FILE.open("a") as f:
+        f.write(json.dumps(event) + "\n")
 
 
 class TelemetryHandler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        if self.path != "/skill-events":
-            self.send_response(404)
-            self.end_headers()
-            return
+    tracer: trace.Tracer  # injected at startup via build_tracer()
 
+    def _parse_body(self) -> dict[str, Any] | None:
         length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(length)
-
         try:
-            event = json.loads(body)
+            return json.loads(body)
         except json.JSONDecodeError as e:
             print(f"[ERROR] Invalid JSON: {e}")
-            self.send_response(400)
-            self.end_headers()
-            return
+            return None
 
-        # Pretty-print to console
-        ts = event.get("timestamp", datetime.now(timezone.utc).isoformat())
-        skill = event.get("skill", "unknown")
-        status = event.get("status", "unknown")
-        duration = event.get("duration_ms")
-
-        print(f"\n[{ts}] skill={skill}  status={status}", end="")
-        if duration is not None:
-            print(f"  duration={duration}ms", end="")
-        extra = {k: v for k, v in event.items()
-                 if k not in {"timestamp", "skill", "status", "duration_ms"}}
-        if extra:
-            print(f"\n  {json.dumps(extra)}", end="")
-        print()
-
-        # Append raw line to events.jsonl
-        with open(EVENTS_FILE, "a") as f:
-            f.write(json.dumps(event) + "\n")
-
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
+    def _respond(self, status: int, body: bytes = b"") -> None:
+        self.send_response(status)
+        if body:
+            self.send_header("Content-Type", "application/json")
         self.end_headers()
-        self.wfile.write(b'{"status":"ok"}')
+        if body:
+            self.wfile.write(body)
 
-    def log_message(self, fmt, *args):
-        # Suppress default access log noise
+    def do_POST(self) -> None:
+        if self.path != "/skill-events":
+            self._respond(404)
+            return
+        event = self._parse_body()
+        if event is None:
+            self._respond(400)
+            return
+        emit_span(self.__class__.tracer, event)
+        append_event(event)
+        ts = event.get("timestamp", datetime.now(timezone.utc).isoformat())
+        print(f"[{ts}] skill={event.get('skill_id', 'unknown')}  span exported to Jaeger")
+        self._respond(200, b'{"status":"ok"}')
+
+    def log_message(self, fmt: str, *args: Any) -> None:
         pass
 
 
 if __name__ == "__main__":
-    server = HTTPServer(("0.0.0.0", PORT), TelemetryHandler)
-    print(f"Telemetry collector listening on http://0.0.0.0:{PORT}/skill-events")
-    print(f"Appending events to: {EVENTS_FILE}")
+    TelemetryHandler.tracer = build_tracer()
+    server = HTTPServer(("0.0.0.0", COLLECTOR_PORT), TelemetryHandler)
+    print(f"OTel collector  → http://0.0.0.0:{COLLECTOR_PORT}/skill-events")
+    print(f"Exporting spans → Jaeger OTLP at {JAEGER_OTLP_ENDPOINT}")
+    print(f"Buffer file     → {EVENTS_FILE}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
