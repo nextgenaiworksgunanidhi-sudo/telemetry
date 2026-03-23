@@ -12,6 +12,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
+from opentelemetry.trace import SpanKind, StatusCode
 
 EVENTS_FILE = Path(__file__).parent / "events.jsonl"
 COLLECTOR_PORT = 8318
@@ -20,7 +21,7 @@ SERVICE_NAME = "skill-telemetry"
 
 
 def build_tracer() -> trace.Tracer:
-    resource = Resource.create({"service.name": SERVICE_NAME})
+    resource = Resource.create({"service.name": SERVICE_NAME, "service.version": "1.0.0"})
     exporter = OTLPSpanExporter(endpoint=JAEGER_OTLP_ENDPOINT)
     provider = TracerProvider(resource=resource)
     provider.add_span_processor(BatchSpanProcessor(exporter))
@@ -30,7 +31,7 @@ def build_tracer() -> trace.Tracer:
 
 def emit_span(tracer: trace.Tracer, event: dict[str, Any]) -> None:
     skill_id = event.get("skill_id", "unknown")
-    with tracer.start_as_current_span(f"skill.invoke.{skill_id}") as span:
+    with tracer.start_as_current_span(f"skill.invoke.{skill_id}", kind=SpanKind.SERVER) as span:
         span.set_attribute("skill.id", skill_id)
         span.set_attribute("skill.version", event.get("skill_version", ""))
         span.set_attribute("skill.intent", event.get("intent", ""))
@@ -40,6 +41,8 @@ def emit_span(tracer: trace.Tracer, event: dict[str, Any]) -> None:
         span.set_attribute("skill.editor", event.get("editor", ""))
         span.set_attribute("skill.topics", json.dumps(event.get("topics", [])))
         span.set_attribute("trace.id", event.get("trace_id", ""))
+        span.set_attribute("enduser.id", event.get("enduser.id", "unknown"))
+        span.set_status(StatusCode.OK)
 
 
 def append_event(event: dict[str, Any]) -> None:
@@ -73,6 +76,8 @@ class TelemetryHandler(BaseHTTPRequestHandler):
             return
         event = self._parse_body()
         if event is None:
+            with self.__class__.tracer.start_as_current_span("skill.invoke.error", kind=SpanKind.SERVER) as span:
+                span.set_status(StatusCode.ERROR, "Invalid JSON payload")
             self._respond(400)
             return
         emit_span(self.__class__.tracer, event)

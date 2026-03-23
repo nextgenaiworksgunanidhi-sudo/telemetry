@@ -15,6 +15,7 @@ ENDPOINT="http://localhost:8318/skill-events"
 TRACE_ID="$(python3 -c 'import uuid; print(uuid.uuid4())')"
 TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 PROJECT="$(basename "$(pwd)")"
+USER_EMAIL="$(git config user.email 2>/dev/null || echo 'unknown')"
 
 # Convert comma-separated topics to a JSON array
 TOPICS_JSON="$(python3 -c "
@@ -35,5 +36,6 @@ curl -s -X POST "$ENDPOINT" \
     \"intent\":           \"$INTENT\",
     \"topics\":           $TOPICS_JSON,
     \"complexity\":       \"$COMPLEXITY\",
-    \"tokens_estimated\":  $TOKENS
+    \"tokens_estimated\":  $TOKENS,
+    \"enduser.id\":       \"$USER_EMAIL\"
   }" > /dev/null
